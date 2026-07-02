@@ -1,0 +1,10 @@
+.venv/
+__pycache__/
+*.pyc
+build/
+dist/
+*.spec
+*.egg-info/
+# preview / sample artifacts
+preview.png
+_sample_report.html
