@@ -37,18 +37,13 @@ from raidkit.checks import cors, discovery, exposure, headers, openredirect, tra
 from raidkit.http import make_client
 from raidkit.report import Finding, Severity
 
-from raiddeck import __version__, history, reporting, scope
+from raiddeck import __version__, history, reporting, scope, theme
 from raiddeck.dialogs import TargetsDialog
 
 AVAILABLE_CHECKS = [
     ("headers", headers), ("transport", transport), ("exposure", exposure),
     ("discovery", discovery), ("cors", cors), ("openredirect", openredirect), ("xss", xss),
 ]
-
-_SEV_COLOR = {
-    Severity.CRITICAL: "#8e1616", Severity.HIGH: "#c62828", Severity.MEDIUM: "#c77800",
-    Severity.LOW: "#1565c0", Severity.INFO: "#5f6368",
-}
 
 
 async def _run(url: str, modules) -> list[Finding]:
@@ -90,29 +85,45 @@ class MainWindow(QMainWindow):
         root = QWidget()
         self.setCentralWidget(root)
         layout = QVBoxLayout(root)
-        layout.setContentsMargins(16, 12, 16, 12)
-        layout.setSpacing(10)
+        layout.setContentsMargins(22, 18, 22, 16)
+        layout.setSpacing(14)
+
+        # header — wordmark + subtitle
+        header = QHBoxLayout()
+        title = QLabel("Raid<span style='color:#818cf8'>Deck</span>")
+        title.setTextFormat(Qt.RichText)
+        title.setStyleSheet("font-size:26px; font-weight:800; letter-spacing:0.5px;")
+        subtitle = QLabel("White-Hat Security Toolkit")
+        subtitle.setStyleSheet("color:#7d808a; font-size:13px; padding-bottom:3px;")
+        header.addWidget(title)
+        header.addSpacing(12)
+        header.addWidget(subtitle, 0, Qt.AlignBottom)
+        header.addStretch(1)
+        layout.addLayout(header)
 
         banner = QLabel(
-            "  WHITE-HAT MODE — RaidDeck only scans local/private hosts or your "
-            "Authorized Targets, read-only (non-destructive recon). Never use it "
+            "<b style='color:#e2b23a'>WHITE-HAT MODE</b>  &nbsp;RaidDeck only scans "
+            "local/private hosts or your Authorized Targets, read-only. Never use it "
             "on systems you don't own or aren't permitted to test."
         )
         banner.setWordWrap(True)
         banner.setStyleSheet(
-            "background:#2b1a1a; color:#ffb4a2; border:1px solid #7a2e2e;"
-            "border-radius:8px; padding:10px; font-weight:600;"
+            "background:#17140c; color:#b9bcc4; border:1px solid #3a3016;"
+            "border-left:3px solid #e2b23a; border-radius:8px; padding:11px 14px;"
         )
         layout.addWidget(banner)
 
         row = QHBoxLayout()
+        row.setSpacing(12)
         self.target = QLineEdit()
         self.target.setPlaceholderText("https://localhost:8000/")
-        self.target.setMinimumHeight(34)
+        self.target.setMinimumHeight(40)
         self.authorized = QCheckBox("I'm authorized to test this target")
         self.scan_btn = QPushButton("Scan")
-        self.scan_btn.setMinimumHeight(34)
-        self.scan_btn.setStyleSheet("font-weight:700; padding:0 22px;")
+        self.scan_btn.setObjectName("primary")
+        self.scan_btn.setMinimumHeight(40)
+        self.scan_btn.setMinimumWidth(120)
+        self.scan_btn.setCursor(Qt.PointingHandCursor)
         row.addWidget(self.target, 1)
         row.addWidget(self.authorized)
         row.addWidget(self.scan_btn)
@@ -129,6 +140,8 @@ class MainWindow(QMainWindow):
         self.table.setEditTriggers(QAbstractItemView.NoEditTriggers)
         self.table.setSelectionBehavior(QAbstractItemView.SelectRows)
         self.table.setAlternatingRowColors(True)
+        self.table.setShowGrid(False)
+        self.table.verticalHeader().setVisible(False)
         h = self.table.horizontalHeader()
         for col, mode in ((0, QHeaderView.ResizeToContents), (1, QHeaderView.ResizeToContents),
                           (2, QHeaderView.Stretch), (3, QHeaderView.ResizeToContents),
@@ -226,6 +239,22 @@ class MainWindow(QMainWindow):
     def _open_record(self, item: QListWidgetItem) -> None:
         self._show_record(item.data(Qt.UserRole))
 
+    def _sev_pill(self, name: str) -> QWidget:
+        lbl = QLabel(name)
+        lbl.setAlignment(Qt.AlignCenter)
+        lbl.setFixedSize(86, 24)
+        lbl.setStyleSheet(
+            f"background:{theme.SEV_BG[name]}; color:{theme.SEV_FG[name]};"
+            "border-radius:12px; font-weight:800; font-size:11px; letter-spacing:0.5px;"
+        )
+        holder = QWidget()
+        holder.setStyleSheet("background:transparent;")
+        lay = QHBoxLayout(holder)
+        lay.setContentsMargins(10, 5, 10, 5)
+        lay.addWidget(lbl)
+        lay.setAlignment(Qt.AlignCenter)
+        return holder
+
     def _show_record(self, record: history.ScanRecord) -> None:
         self._current = record
         for a in (self.act_json, self.act_md, self.act_html):
@@ -233,14 +262,7 @@ class MainWindow(QMainWindow):
         findings = sorted(record.findings, key=lambda f: f.severity, reverse=True)
         self.table.setRowCount(len(findings))
         for i, f in enumerate(findings):
-            sev = QTableWidgetItem(f.severity.name)
-            sev.setForeground(QColor("white"))
-            sev.setBackground(QColor(_SEV_COLOR[f.severity]))
-            font = QFont()
-            font.setBold(True)
-            sev.setFont(font)
-            sev.setTextAlignment(Qt.AlignCenter)
-            self.table.setItem(i, 0, sev)
+            self.table.setCellWidget(i, 0, self._sev_pill(f.severity.name))
             self.table.setItem(i, 1, QTableWidgetItem(f.check))
             self.table.setItem(i, 2, QTableWidgetItem(f.title))
             self.table.setItem(i, 3, QTableWidgetItem(f.evidence))
@@ -277,6 +299,8 @@ class MainWindow(QMainWindow):
 
 def main() -> None:
     app = QApplication(sys.argv)
+    app.setStyle("Fusion")
+    app.setStyleSheet(theme.QSS)
     win = MainWindow()
     win.show()
     sys.exit(app.exec())

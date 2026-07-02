@@ -6,11 +6,13 @@ from datetime import datetime, timezone
 from PySide6.QtCore import Qt, QTimer
 from PySide6.QtWidgets import QApplication
 
-from raiddeck import history, reporting
+from raiddeck import history, reporting, theme
 from raiddeck.app import MainWindow
 from raidkit.report import Finding, Severity
 
 app = QApplication(sys.argv)
+app.setStyle("Fusion")
+app.setStyleSheet(theme.QSS)
 w = MainWindow()
 w.target.setText("http://localhost:8046/")
 w.authorized.setChecked(True)
